@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>古代中医药方剂配伍规律挖掘与现代新药发现辅助系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">中药方剂配伍规律挖掘系统</h1>
+                <span class="app-subtitle">TCM Formula Compatibility Mining System</span>
+            </div>
+            <div class="header-right">
+                <div class="stats-panel">
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-formulas">0</span>
+                        <span class="stat-label">方剂</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-herbs">0</span>
+                        <span class="stat-label">中药</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-diseases">0</span>
+                        <span class="stat-label">病症</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <nav class="side-nav">
+            <ul class="nav-menu">
+                <li class="nav-item active" data-view="graph">
+                    <span class="nav-icon">🕸️</span>
+                    <span class="nav-text">关联网络图</span>
+                </li>
+                <li class="nav-item" data-view="formulas">
+                    <span class="nav-icon">📜</span>
+                    <span class="nav-text">方剂库</span>
+                </li>
+                <li class="nav-item" data-view="herbs">
+                    <span class="nav-icon">🌿</span>
+                    <span class="nav-text">中药库</span>
+                </li>
+                <li class="nav-item" data-view="diseases">
+                    <span class="nav-icon">🏥</span>
+                    <span class="nav-text">病症库</span>
+                </li>
+                <li class="nav-item" data-view="mining">
+                    <span class="nav-icon">⚗️</span>
+                    <span class="nav-text">配伍规律挖掘</span>
+                </li>
+                <li class="nav-item" data-view="discovery">
+                    <span class="nav-icon">🔬</span>
+                    <span class="nav-text">新药发现辅助</span>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <div class="view-container">
+                <div class="view graph-view active" id="view-graph">
+                    <div class="graph-toolbar">
+                        <div class="toolbar-left">
+                            <label class="control-group">
+                                <span>节点类型:</span>
+                                <select id="node-type-filter">
+                                    <option value="all">全部</option>
+                                    <option value="herb">中药</option>
+                                    <option value="formula">方剂</option>
+                                    <option value="disease">病症</option>
+                                </select>
+                            </label>
+                            <label class="control-group">
+                                <span>展示数量:</span>
+                                <select id="node-limit">
+                                    <option value="30">30个</option>
+                                    <option value="50" selected>50个</option>
+                                    <option value="100">100个</option>
+                                    <option value="200">200个</option>
+                                </select>
+                            </label>
+                            <button class="btn btn-primary" id="btn-refresh-graph">
+                                刷新图
+                            </button>
+                        </div>
+                        <div class="toolbar-right">
+                            <button class="btn" id="btn-zoom-in">放大</button>
+                            <button class="btn" id="btn-zoom-out">缩小</button>
+                            <button class="btn" id="btn-zoom-reset">重置</button>
+                        </div>
+                    </div>
+                    <div class="graph-container">
+                        <svg id="graph-svg"></svg>
+                        <canvas id="graph-canvas"></canvas>
+                        <div class="graph-legend">
+                            <h4>图例</h4>
+                            <div class="legend-item">
+                                <span class="legend-dot herb-warm"></span>
+                                <span>温性药</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-dot herb-cold"></span>
+                                <span>寒性药</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-dot herb-neutral"></span>
+                                <span>平性药</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-dot formula-node"></span>
+                                <span>方剂 (大小=使用频率)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-dot disease-node"></span>
+                                <span>病症</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view formulas-view" id="view-formulas">
+                    <div class="view-header">
+                        <h2>方剂库</h2>
+                        <div class="search-bar">
+                            <input type="text" id="formula-search" placeholder="搜索方剂名称...">
+                            <select id="formula-dynasty-filter">
+                                <option value="">全部朝代</option>
+                            </select>
+                            <button class="btn btn-primary" id="btn-search-formula">搜索</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>方剂名称</th>
+                                    <th>朝代</th>
+                                    <th>作者</th>
+                                    <th>主治病症</th>
+                                    <th>药味数</th>
+                                    <th>使用频率</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="formula-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="formula-pagination">
+                    </div>
+                </div>
+
+                <div class="view herbs-view" id="view-herbs">
+                    <div class="view-header">
+                        <h2>中药库</h2>
+                        <div class="search-bar">
+                            <input type="text" id="herb-search" placeholder="搜索中药名称...">
+                            <select id="herb-category-filter">
+                                <option value="">全部类别</option>
+                            </select>
+                            <select id="herb-nature-filter">
+                                <option value="">全部药性</option>
+                                <option value="寒">寒</option>
+                                <option value="热">热</option>
+                                <option value="温">温</option>
+                                <option value="凉">凉</option>
+                                <option value="平">平</option>
+                            </select>
+                            <button class="btn btn-primary" id="btn-search-herb">搜索</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>药名</th>
+                                    <th>类别</th>
+                                    <th>药性</th>
+                                    <th>药味</th>
+                                    <th>归经</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="herb-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="herb-pagination">
+                    </div>
+                </div>
+
+                <div class="view diseases-view" id="view-diseases">
+                    <div class="view-header">
+                        <h2>病症库</h2>
+                        <div class="search-bar">
+                            <input type="text" id="disease-search" placeholder="搜索病症名称...">
+                            <select id="disease-category-filter">
+                                <option value="">全部类别</option>
+                            </select>
+                            <button class="btn btn-primary" id="btn-search-disease">搜索</button>
+                        </div>
+                    </div>
+                    <div class="disease-grid" id="disease-grid">
+                    </div>
+                </div>
+
+                <div class="view mining-view" id="view-mining">
+                    <div class="view-header">
+                        <h2>配伍规律挖掘</h2>
+                    </div>
+                    <div class="mining-tabs">
+                        <button class="tab-btn active" data-tab="frequent">频繁项集</button>
+                        <button class="tab-btn" data-tab="rules">关联规则</button>
+                        <button class="tab-btn" data-tab="pairs">高频药对</button>
+                        <button class="tab-btn" data-tab="triplets">角药组合</button>
+                        <button class="tab-btn" data-tab="communities">药物社区</button>
+                    </div>
+                    
+                    <div class="mining-content">
+                        <div class="tab-content active" id="tab-frequent">
+                            <div class="mining-controls">
+                                <label>最小支持度:
+                                    <input type="range" id="min-support" min="0.01" max="0.2" step="0.01" value="0.05">
+                                    <span id="min-support-val">0.05</span>
+                                </label>
+                                <button class="btn btn-primary" id="btn-run-apriori">运行挖掘</button>
+                            </div>
+                            <div id="frequent-itemsets-container">
+                                <p class="placeholder-text">点击"运行挖掘"开始分析</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-rules">
+                            <div class="mining-controls">
+                                <label>最小置信度:
+                                    <input type="range" id="min-confidence" min="0.1" max="1.0" step="0.05" value="0.3">
+                                    <span id="min-confidence-val">0.3</span>
+                                </label>
+                                <label>最小提升度:
+                                    <input type="range" id="min-lift" min="0.5" max="5.0" step="0.1" value="1.0">
+                                    <span id="min-lift-val">1.0</span>
+                                </label>
+                                <button class="btn btn-primary" id="btn-run-rules">生成规则</button>
+                            </div>
+                            <div id="association-rules-container">
+                                <p class="placeholder-text">点击"生成规则"开始分析</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-pairs">
+                            <div id="top-pairs-container">
+                                <p class="placeholder-text">加载中...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-triplets">
+                            <div id="top-triplets-container">
+                                <p class="placeholder-text">加载中...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-communities">
+                            <div class="mining-controls">
+                                <label>最小共现次数:
+                                    <input type="number" id="min-cooccurrence" value="5" min="1">
+                                </label>
+                                <label>分辨率:
+                                    <input type="range" id="resolution" min="0.1" max="3.0" step="0.1" value="1.0">
+                                    <span id="resolution-val">1.0</span>
+                                </label>
+                                <button class="btn btn-primary" id="btn-run-louvain">发现社区</button>
+                            </div>
+                            <div id="communities-container">
+                                <p class="placeholder-text">点击"发现社区"开始分析</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view discovery-view" id="view-discovery">
+                    <div class="view-header">
+                        <h2>新药发现辅助</h2>
+                    </div>
+                    <div class="discovery-tabs">
+                        <button class="tab-btn active" data-tab="prediction">链路预测</button>
+                        <button class="tab-btn" data-tab="new-pairs">新药对推荐</button>
+                        <button class="tab-btn" data-tab="pair-analysis">药对分析</button>
+                        <button class="tab-btn" data-tab="target-based">靶点筛选</button>
+                    </div>
+                    
+                    <div class="discovery-content">
+                        <div class="tab-content active" id="tab-prediction">
+                            <div class="discovery-controls">
+                                <label>预测方法:
+                                    <select id="prediction-method">
+                                        <option value="adamic_adar">Adamic-Adar</option>
+                                        <option value="common_neighbors">共同邻居</option>
+                                        <option value="jaccard">Jaccard系数</option>
+                                        <option value="resource_allocation">资源分配</option>
+                                        <option value="preferential_attachment">优先连接</option>
+                                    </select>
+                                </label>
+                                <label>展示数量:
+                                    <select id="prediction-topn">
+                                        <option value="20">20</option>
+                                        <option value="50" selected>50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </label>
+                                <button class="btn btn-primary" id="btn-run-prediction">预测新药对</button>
+                            </div>
+                            <div id="prediction-results">
+                                <p class="placeholder-text">点击"预测新药对"开始分析</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-new-pairs">
+                            <div class="discovery-controls">
+                                <button class="btn btn-primary" id="btn-discover-pairs">发现新药对</button>
+                            </div>
+                            <div id="new-pairs-results">
+                                <p class="placeholder-text">点击"发现新药对"开始分析</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-pair-analysis">
+                            <div class="discovery-controls">
+                                <label>药物A:
+                                    <input type="text" id="pair-herb-a" placeholder="输入药名...">
+                                </label>
+                                <label>药物B:
+                                    <input type="text" id="pair-herb-b" placeholder="输入药名...">
+                                </label>
+                                <button class="btn btn-primary" id="btn-analyze-pair">分析药对</button>
+                            </div>
+                            <div id="pair-analysis-results">
+                                <p class="placeholder-text">输入两味药物进行分析</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="tab-target-based">
+                            <div class="discovery-controls">
+                                <label>靶点:
+                                    <select id="target-select">
+                                        <option value="">选择靶点...</option>
+                                    </select>
+                                </label>
+                                <button class="btn btn-primary" id="btn-target-search">筛选药物</button>
+                            </div>
+                            <div id="target-results">
+                                <p class="placeholder-text">选择靶点进行筛选</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="detail-panel" id="detail-panel">
+            <button class="close-panel" id="close-panel">×</button>
+            <div class="panel-content" id="panel-content">
+                <p class="placeholder-text">点击节点查看详细信息</p>
+            </div>
+        </aside>
+    </div>
+
+    <script src="js/graph.js"></script>
+    <script src="js/panel.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
