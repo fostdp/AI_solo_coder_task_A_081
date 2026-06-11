@@ -16,6 +16,58 @@ def formula_to_response(formula_doc):
     return formula_doc
 
 
+def _build_text_query(keyword: Optional[str], dynasty: Optional[str],
+                      disease: Optional[str], herb: Optional[str]) -> dict:
+    query = {}
+    if keyword:
+        try:
+            formulas_col = get_collection("formulas")
+            indexes = formulas_col.list_indexes()
+            has_text = any(idx.get("name") == "formula_text_index" for idx in indexes)
+        except Exception:
+            has_text = False
+
+        if has_text:
+            text_query = {"$text": {"$search": keyword}}
+            if dynasty or disease or herb:
+                query["$and"] = [text_query]
+                if dynasty:
+                    query["$and"].append({"dynasty": dynasty})
+                if disease:
+                    query["$and"].append({"indications": {"$in": [disease]}})
+                if herb:
+                    query["$and"].append({"herbs.name": herb})
+            else:
+                query = text_query
+        else:
+            query["name"] = {"$regex": keyword, "$options": "i"}
+            if dynasty:
+                query["dynasty"] = dynasty
+            if disease:
+                query["indications"] = {"$in": [disease]}
+            if herb:
+                query["herbs.name"] = herb
+    else:
+        if dynasty:
+            query["dynasty"] = dynasty
+        if disease:
+            query["indications"] = {"$in": [disease]}
+        if herb:
+            query["herbs.name"] = herb
+    return query
+
+
+def _should_text_sort(keyword: Optional[str]) -> bool:
+    if not keyword:
+        return False
+    try:
+        formulas_col = get_collection("formulas")
+        indexes = formulas_col.list_indexes()
+        return any(idx.get("name") == "formula_text_index" for idx in indexes)
+    except Exception:
+        return False
+
+
 @router.get("/", response_model=List[dict])
 def list_formulas(
     skip: int = 0,
@@ -28,20 +80,18 @@ def list_formulas(
     sort_order: str = "desc"
 ):
     formulas_col = get_collection("formulas")
-    
-    query = {}
-    if keyword:
-        query["name"] = {"$regex": keyword, "$options": "i"}
-    if dynasty:
-        query["dynasty"] = dynasty
-    if disease:
-        query["indications"] = {"$in": [disease]}
-    if herb:
-        query["herbs.name"] = herb
-    
-    sort_direction = -1 if sort_order == "desc" else 1
-    cursor = formulas_col.find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)
-    
+
+    query = _build_text_query(keyword, dynasty, disease, herb)
+
+    if _should_text_sort(keyword) and sort_by == "frequency":
+        sort_direction = -1 if sort_order == "desc" else 1
+        cursor = formulas_col.find(query, {"score": {"$meta": "textScore"}}) \
+            .sort([("score", {"$meta": "textScore"}), (sort_by, sort_direction)]) \
+            .skip(skip).limit(limit)
+    else:
+        sort_direction = -1 if sort_order == "desc" else 1
+        cursor = formulas_col.find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)
+
     result = [formula_to_response(f) for f in cursor]
     return result
 
@@ -54,17 +104,9 @@ def count_formulas(
     herb: Optional[str] = None
 ):
     formulas_col = get_collection("formulas")
-    
-    query = {}
-    if keyword:
-        query["name"] = {"$regex": keyword, "$options": "i"}
-    if dynasty:
-        query["dynasty"] = dynasty
-    if disease:
-        query["indications"] = {"$in": [disease]}
-    if herb:
-        query["herbs.name"] = herb
-    
+
+    query = _build_text_query(keyword, dynasty, disease, herb)
+
     count = formulas_col.count_documents(query)
     return {"count": count}
 

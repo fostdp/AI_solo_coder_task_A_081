@@ -190,11 +190,19 @@ def import_data():
     print(f"已导入 {len(herb_targets)} 条药理靶点数据")
     
     print("正在创建索引...")
+    formulas_collection = get_collection("formulas")
     formulas_collection.create_index([("name", 1)])
     formulas_collection.create_index([("indications", 1)])
     formulas_collection.create_index([("herbs.name", 1)])
     formulas_collection.create_index([("dynasty", 1)])
     formulas_collection.create_index([("frequency", -1)])
+
+    formulas_collection.create_index(
+        [("name", "text"), ("indications", "text"), ("source", "text")],
+        name="formula_text_index",
+        default_language="none",
+        weights={"name": 10, "indications": 5, "source": 1}
+    )
     
     herbs_collection.create_index([("name", 1)], unique=True)
     herbs_collection.create_index([("category", 1)])
